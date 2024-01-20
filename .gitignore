@@ -19,3 +19,13 @@
 
 # Go workspace file
 go.work
+
+# goland config
+.idea/
+
+# goreleaser builds
+dist/
+
+*.log
+
+bin/
