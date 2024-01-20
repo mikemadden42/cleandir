@@ -1,0 +1,2 @@
+# cleandir
+Clean home directory
