@@ -16,9 +16,10 @@ func clean() {
 
 	for _, f := range files {
 		if !f.IsDir() && !strings.HasPrefix(f.Name(), ".") { // Check for dotfiles
-			extension := filepath.Ext(f.Name())[1:]
-			if extension != "" && extension != "9" {
-				destDir := filepath.Join("Documents", extension)
+			extension := filepath.Ext(f.Name())
+			if extension != "" && extension != "." && extension[1:] != "9" { // Check if extension is not empty before accessing its first character
+				destDir := filepath.Join("Documents", extension[1:])
+
 				err := os.MkdirAll(destDir, os.ModePerm) // Create directory if it doesn't exist
 				if err != nil {
 					fmt.Println("Error creating directory:", err)
