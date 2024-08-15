@@ -28,11 +28,16 @@ func clean() {
 				srcPath := f.Name()
 				destPath := filepath.Join(destDir, f.Name())
 
-				err = os.Rename(srcPath, destPath)
-				if err != nil {
-					fmt.Println("Error moving file:", err)
+				// Check if the file already exists in the destination directory
+				if _, err := os.Stat(destPath); os.IsNotExist(err) {
+					err = os.Rename(srcPath, destPath)
+					if err != nil {
+						fmt.Println("Error moving file:", err)
+					} else {
+						fmt.Println("Moved", srcPath, "to", destDir)
+					}
 				} else {
-					fmt.Println("Moved", srcPath, "to", destDir)
+					fmt.Println("File", srcPath, "already exists in", destDir)
 				}
 			}
 		}
