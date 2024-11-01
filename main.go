@@ -20,7 +20,7 @@ func clean() {
 			if extension != "" && extension != "." && extension[1:] != "9" { // Check if extension is not empty before accessing its first character
 				destDir := filepath.Join("Documents", extension[1:])
 
-				err := os.MkdirAll(destDir, os.ModePerm) // Create directory if it doesn't exist
+				err := os.MkdirAll(destDir, 0750) // Create directory if it doesn't exist
 				if err != nil {
 					fmt.Println("Error creating directory:", err)
 				}
