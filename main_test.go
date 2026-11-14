@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -126,5 +127,56 @@ func TestCleanKeepsExistingDestination(t *testing.T) {
 func TestCleanMissingDirectory(t *testing.T) {
 	if err := clean(filepath.Join(t.TempDir(), "missing"), false); err == nil {
 		t.Error("expected error for missing directory")
+	}
+}
+
+func TestCleanLowercasesExtension(t *testing.T) {
+	dir := t.TempDir()
+	touch(t, filepath.Join(dir, "b.PDF"))
+	touch(t, filepath.Join(dir, "c.pdf"))
+
+	if err := clean(dir, false); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(dir, "Documents"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "pdf" {
+		t.Errorf("want only Documents/pdf, got %v", entries)
+	}
+	for _, name := range []string{"b.PDF", "c.pdf"} {
+		if !exists(filepath.Join(dir, "Documents", "pdf", name)) {
+			t.Errorf("%s not moved to Documents/pdf", name)
+		}
+	}
+}
+
+func TestCleanReportsMkdirFailure(t *testing.T) {
+	dir := t.TempDir()
+	touch(t, filepath.Join(dir, "Documents")) // A file where the directory should be
+	touch(t, filepath.Join(dir, "a.txt"))
+
+	if err := clean(dir, false); err == nil {
+		t.Error("expected error when Documents can't be created")
+	}
+	if !exists(filepath.Join(dir, "a.txt")) {
+		t.Error("a.txt was moved despite mkdir failure")
+	}
+}
+
+func TestMoveFileDoesNotOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	dst := filepath.Join(dir, "dst.txt")
+	touch(t, src)
+	touch(t, dst)
+
+	if err := moveFile(src, dst); !errors.Is(err, errExists) {
+		t.Errorf("want errExists, got %v", err)
+	}
+	if !exists(src) {
+		t.Error("source removed")
 	}
 }

@@ -5,17 +5,17 @@
 - [x] **Run against the home directory, not the current directory.** `os.ReadDir(".")` contradicts the README ("Clean home directory"); running from any other directory moves its files into `./Documents/...`. Use `os.UserHomeDir()` or accept a path argument.
 - [x] **Add a dry-run flag (`-n`).** There is currently no confirmation or undo.
 - [x] **Only move regular files.** The `!f.IsDir()` filter lets symlinks, FIFOs and sockets through. Verified: a symlink to a directory was moved to `Documents/d/`, a FIFO to `Documents/fifo/`, and a relative symlink (`rel.txt -> ../elsewhere.txt`) was moved and broken. Use `if !f.Type().IsRegular() { continue }`.
-- [ ] **Normalize extension case.** `b.PDF` and `c.pdf` both went into `Documents/PDF/` on macOS, while the output said `Documents/pdf`; on Linux they would be split into two folders. Use `strings.ToLower` for the folder name.
-- [ ] **Skip the file when `MkdirAll` fails.** The error is printed, then the rename is attempted anyway. Add `continue`.
-- [ ] **Fix the "already exists" check.** Any `Stat` error other than not-found (e.g. permission denied) is reported as "already exists". The check-then-rename is also racy, and `os.Rename` overwrites silently on Unix. Consider `os.Link` + `os.Remove`, which fails instead of overwriting.
-- [ ] **Document or remove the `.9` exception.** `extension[1:] != "9"` has no explanation; make it a named skip list if it's intentional.
-- [ ] **Report errors properly.** Write errors to stderr and exit non-zero when anything fails.
-- [ ] **Flatten `clean`.** Use early `continue`s to cut the four levels of nesting.
+- [x] **Normalize extension case.** `b.PDF` and `c.pdf` both went into `Documents/PDF/` on macOS, while the output said `Documents/pdf`; on Linux they would be split into two folders. Use `strings.ToLower` for the folder name.
+- [x] **Skip the file when `MkdirAll` fails.** The error is printed, then the rename is attempted anyway. Add `continue`.
+- [x] **Fix the "already exists" check.** Any `Stat` error other than not-found (e.g. permission denied) is reported as "already exists". The check-then-rename is also racy, and `os.Rename` overwrites silently on Unix. Consider `os.Link` + `os.Remove`, which fails instead of overwriting.
+- [x] **Document or remove the `.9` exception.** `extension[1:] != "9"` has no explanation; make it a named skip list if it's intentional.
+- [x] **Report errors properly.** Write errors to stderr and exit non-zero when anything fails.
+- [x] **Flatten `clean`.** Use early `continue`s to cut the four levels of nesting.
 
 ## Tests
 
 - [x] Refactor to `clean(dir string, dryRun bool) error` so it can be tested.
-- [ ] Add tests using `t.TempDir()`: symlinks, mixed-case extensions, existing destination file, dotfiles, files without an extension.
+- [x] Add tests using `t.TempDir()`: symlinks, mixed-case extensions, existing destination file, dotfiles, files without an extension.
 
 ## Tooling and config
 
