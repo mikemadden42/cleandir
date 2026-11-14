@@ -1,3 +1,3 @@
 module github.com/mikemadden42/cleandir
 
-go 1.21
+go 1.26
