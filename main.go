@@ -2,12 +2,47 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// skipExtensions lists extensions (lowercase, without the dot) that are never moved.
+// "9" is kept from the original behavior; the reason for it isn't recorded.
+var skipExtensions = map[string]bool{
+	"9": true,
+}
+
+// errExists means the destination file is already there; the source is left in place.
+var errExists = errors.New("destination already exists")
+
+// moveFile moves src to dst without overwriting an existing dst.
+// It hard-links then removes src, so an existing dst makes the link fail instead
+// of being replaced. Filesystems without hard links fall back to check-then-rename.
+func moveFile(src, dst string) error {
+	err := os.Link(src, dst)
+	if err == nil {
+		if err := os.Remove(src); err != nil {
+			_ = os.Remove(dst) // Undo the link so the file isn't left in both places
+			return err
+		}
+		return nil
+	}
+	if errors.Is(err, fs.ErrExist) {
+		return errExists
+	}
+
+	if _, err := os.Lstat(dst); err == nil {
+		return errExists
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return os.Rename(src, dst)
+}
 
 func clean(dir string, dryRun bool) error {
 	files, err := os.ReadDir(dir)
@@ -15,39 +50,53 @@ func clean(dir string, dryRun bool) error {
 		return fmt.Errorf("reading directory: %w", err)
 	}
 
+	failed := 0
 	for _, f := range files {
-		if f.Type().IsRegular() && !strings.HasPrefix(f.Name(), ".") { // Skip dotfiles, directories, symlinks, pipes and sockets
-			extension := filepath.Ext(f.Name())
-			if extension != "" && extension != "." && extension[1:] != "9" { // Check if extension is not empty before accessing its first character
-				destDir := filepath.Join(dir, "Documents", extension[1:])
-
-				if !dryRun {
-					err := os.MkdirAll(destDir, 0750) // Create directory if it doesn't exist
-					if err != nil {
-						fmt.Println("Error creating directory:", err)
-					}
-				}
-
-				srcPath := filepath.Join(dir, f.Name())
-				destPath := filepath.Join(destDir, f.Name())
-
-				// Check if the file already exists in the destination directory
-				if _, err := os.Stat(destPath); os.IsNotExist(err) {
-					if dryRun {
-						fmt.Println("Would move", srcPath, "to", destDir)
-						continue
-					}
-					err = os.Rename(srcPath, destPath)
-					if err != nil {
-						fmt.Println("Error moving file:", err)
-					} else {
-						fmt.Println("Moved", srcPath, "to", destDir)
-					}
-				} else {
-					fmt.Println("File", srcPath, "already exists in", destDir)
-				}
-			}
+		// Skip dotfiles, directories, symlinks, pipes and sockets
+		if !f.Type().IsRegular() || strings.HasPrefix(f.Name(), ".") {
+			continue
 		}
+		extension := strings.ToLower(strings.TrimPrefix(filepath.Ext(f.Name()), "."))
+		if extension == "" || skipExtensions[extension] {
+			continue
+		}
+
+		destDir := filepath.Join(dir, "Documents", extension)
+		srcPath := filepath.Join(dir, f.Name())
+		destPath := filepath.Join(destDir, f.Name())
+
+		if dryRun {
+			if _, err := os.Lstat(destPath); err == nil {
+				fmt.Println("File", srcPath, "already exists in", destDir)
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintln(os.Stderr, "Error checking destination:", err)
+				failed++
+			} else {
+				fmt.Println("Would move", srcPath, "to", destDir)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(destDir, 0750); err != nil { // Create directory if it doesn't exist
+			fmt.Fprintln(os.Stderr, "Error creating directory:", err)
+			failed++
+			continue
+		}
+
+		err := moveFile(srcPath, destPath)
+		switch {
+		case errors.Is(err, errExists):
+			fmt.Println("File", srcPath, "already exists in", destDir)
+		case err != nil:
+			fmt.Fprintln(os.Stderr, "Error moving file:", err)
+			failed++
+		default:
+			fmt.Println("Moved", srcPath, "to", destDir)
+		}
+	}
+
+	if failed > 0 {
+		return fmt.Errorf("%d file(s) could not be moved", failed)
 	}
 	return nil
 }
